@@ -1,0 +1,234 @@
+.attachement-container {
+  max-width: 1400px;
+  margin: 20px auto;
+  padding: 20px;
+  background: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* En-tête */
+.header-section {
+  margin-bottom: 30px;
+  padding: 20px;
+  border: 2px solid #333;
+}
+
+.ao-number-display {
+  font-weight: bold;
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+.project-title-display {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  line-height: 1.6;
+}
+
+.header-section h2 {
+  text-align: center;
+  margin: 20px 0 0 0;
+  font-size: 20px;
+  text-decoration: underline;
+}
+
+/* Tableau */
+.table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 30px;
+}
+
+.attachement-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #333;
+}
+
+.attachement-table thead {
+  background: #e0e0e0;
+}
+
+.attachement-table th {
+  padding: 12px 8px;
+  border: 1px solid #333;
+  font-weight: bold;
+  font-size: 13px;
+  text-align: center;
+  background: #e0e0e0;
+}
+
+.attachement-table td {
+  padding: 10px 8px;
+  border: 1px solid #333;
+  text-align: center;
+  font-size: 13px;
+}
+
+.designation-cell {
+  text-align: left !important;
+  max-width: 400px;
+}
+
+.total-cell {
+  font-weight: bold;
+  background: #f0f0f0;
+}
+
+/* Pied de tableau - Totaux */
+.attachement-table tfoot tr {
+  background: #f5f5f5;
+  font-weight: bold;
+}
+
+.total-row td {
+  padding: 12px 8px;
+  font-size: 14px;
+  text-align: right;
+}
+
+.total-row td:last-child {
+  text-align: center;
+  background: #f0f0f0;
+}
+
+.total-ttc {
+  background: #e0e0e0 !important;
+  font-size: 15px !important;
+}
+
+.total-ttc td {
+  background: #e0e0e0 !important;
+  font-weight: bold;
+}
+
+/* Boutons d'action */
+.action-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid #ddd;
+}
+
+.action-buttons button {
+  padding: 14px 28px;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: white;
+}
+
+.btn-excel {
+  background: #217346;
+}
+
+.btn-excel:hover {
+  background: #1a5c37;
+}
+
+.btn-pdf {
+  background: #d32f2f;
+}
+
+.btn-pdf:hover {
+  background: #b71c1c;
+}
+
+.btn-print {
+  background: #1976d2;
+}
+
+.btn-print:hover {
+  background: #1565c0;
+}
+
+.btn-back {
+  background: #757575;
+}
+
+.btn-back:hover {
+  background: #616161;
+}
+
+/* Classes pour l'impression */
+.print-hide {
+  display: flex;
+}
+
+.print-show {
+  display: block;
+}
+
+/* Styles d'impression */
+@media print {
+  .attachement-container {
+    box-shadow: none;
+    margin: 0;
+    padding: 10px;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  .attachement-table {
+    font-size: 11px;
+  }
+
+  .attachement-table th,
+  .attachement-table td {
+    padding: 6px 4px;
+  }
+
+  /* Éviter les sauts de page dans le tableau */
+  .attachement-table {
+    page-break-inside: auto;
+  }
+
+  .attachement-table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  .attachement-table thead {
+    display: table-header-group;
+  }
+
+  .attachement-table tfoot {
+    display: table-footer-group;
+  }
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .attachement-table {
+    font-size: 12px;
+  }
+  
+  .attachement-table th,
+  .attachement-table td {
+    padding: 8px 6px;
+  }
+
+  .action-buttons button {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons button {
+    width: 100%;
+  }
+}
