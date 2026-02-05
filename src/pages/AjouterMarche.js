@@ -1,6 +1,70 @@
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function AjouterMarche() {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    titre: '',
+    titulaire: '',
+    budget: '',
+    service: 'Irrigation',
+    date: '',
+    delai: ''
+  });
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Validation basique
+    if (!formData.titre || !formData.titulaire || !formData.budget) {
+      alert('Veuillez remplir tous les champs obligatoires (Titre, Titulaire, Budget)');
+      return;
+    }
+
+    // Récupérer les marchés existants depuis localStorage
+    const existingMarches = JSON.parse(localStorage.getItem('marches') || '[]');
+
+    // Créer le nouveau marché avec un ID unique
+    const newMarche = {
+      id: Date.now(), // ID basé sur timestamp pour l'unicité
+      titre: formData.titre,
+      titulaire: formData.titulaire,
+      service: formData.service,
+      budget: parseFloat(formData.budget),
+      dateLimite: formData.date || new Date().toISOString().split('T')[0], // Date actuelle si non spécifiée
+      delai: formData.delai || 'Non spécifié',
+      statut: 'En attente' // Statut par défaut pour les nouveaux marchés
+    };
+
+    // Ajouter le nouveau marché à la liste existante
+    const updatedMarches = [...existingMarches, newMarche];
+
+    // Sauvegarder dans localStorage
+    localStorage.setItem('marches', JSON.stringify(updatedMarches));
+
+    alert('Marché ajouté avec succès!');
+
+    // Rediriger vers la liste des marchés
+    navigate('/marches');
+
+    // Réinitialiser le formulaire (au cas où on reviendrait à cette page)
+    setFormData({
+      titre: '',
+      titulaire: '',
+      budget: '',
+      service: 'Irrigation',
+      date: '',
+      delai: ''
+    });
+  };
+
   return (
     <section style={sectionStyle}>
       {/* Background image */}
@@ -35,12 +99,62 @@ function AjouterMarche() {
           `}
         </style>
 
-        <form>
-          <input type="text" placeholder="Titre du marché" style={inputStyle} />
-          <input type="text" placeholder="Nom du titulaire" style={inputStyle} />
-          <input type="text" placeholder="Budget" style={inputStyle} />
-          <input type="date" style={inputStyle} />
-          <input type="text" placeholder="Délais" style={inputStyle} />
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            name="titre"
+            placeholder="Titre du marché"
+            value={formData.titre}
+            onChange={handleInputChange}
+            style={inputStyle}
+            required
+          />
+          <input
+            type="text"
+            name="titulaire"
+            placeholder="Nom du titulaire"
+            value={formData.titulaire}
+            onChange={handleInputChange}
+            style={inputStyle}
+            required
+          />
+          <input
+            type="number"
+            name="budget"
+            placeholder="Budget"
+            value={formData.budget}
+            onChange={handleInputChange}
+            style={inputStyle}
+            required
+          />
+          <input
+            type="date"
+            name="date"
+            value={formData.date}
+            onChange={handleInputChange}
+            style={inputStyle}
+          />
+          <select
+            name="service"
+            value={formData.service || 'Irrigation'}
+            onChange={handleInputChange}
+            style={inputStyle}
+            required
+          >
+            <option value="">Choisir un service</option>
+            <option value="Irrigation">Irrigation</option>
+            <option value="Drainage">Drainage</option>
+            <option value="Aménagement">Aménagement</option>
+          </select>
+
+          <input
+            type="text"
+            name="delai"
+            placeholder="Délais"
+            value={formData.delai}
+            onChange={handleInputChange}
+            style={inputStyle}
+          />
 
           <button
             type="submit"
