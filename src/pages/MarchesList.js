@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
 function MarchesList() {
@@ -6,21 +6,50 @@ function MarchesList() {
   const [filterService, setFilterService] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [hovered, setHovered] = useState(null);
+  const [marches, setMarches] = useState([]);
 
-  const marches = [
-    { id: 1, titre: "Irrigation Nord", titulaire: "Société A", service: "Irrigation", budget: 100000, dateLimite: "2026-03-31", delai: "6 mois", statut: "En cours" },
-    { id: 2, titre: "Drainage Sud", titulaire: "Société B", service: "Drainage", budget: 80000, dateLimite: "2026-04-30", delai: "4 mois", statut: "En attente" },
-    { id: 3, titre: "Aménagement Ouest", titulaire: "Société C", service: "Aménagement", budget: 120000, dateLimite: "2026-05-15", delai: "8 mois", statut: "Terminé" },
-    { id: 4, titre: "Station de pompage Est", titulaire: "HydroTech", service: "Irrigation", budget: 95000, dateLimite: "2026-06-10", delai: "5 mois", statut: "En cours" },
-    { id: 5, titre: "Curage des canaux", titulaire: "AquaPlus", service: "Drainage", budget: 67000, dateLimite: "2026-04-20", delai: "3 mois", statut: "En attente" },
-    { id: 6, titre: "Réhabilitation barrage", titulaire: "InfraBat", service: "Aménagement", budget: 210000, dateLimite: "2026-08-01", delai: "10 mois", statut: "En cours" },
-    { id: 7, titre: "Extension réseau hydraulique", titulaire: "HydroSys", service: "Irrigation", budget: 150000, dateLimite: "2026-07-15", delai: "9 mois", statut: "Terminé" },
-    { id: 8, titre: "Protection contre inondations", titulaire: "SafeWater", service: "Drainage", budget: 185000, dateLimite: "2026-09-01", delai: "12 mois", statut: "En cours" },
-  ];
+  // Fonction pour charger les marchés
+  const loadMarches = () => {
+    const savedMarches = localStorage.getItem('marches');
+    if (savedMarches) {
+      setMarches(JSON.parse(savedMarches));
+    } else {
+      // Marchés par défaut si aucun n'est sauvegardé
+      const defaultMarches = [
+        { id: 1, titre: "Irrigation Nord", titulaire: "Société A", service: "Irrigation", budget: 100000, dateLimite: "2026-03-31", delai: "6 mois", statut: "En cours" },
+        { id: 2, titre: "Drainage Sud", titulaire: "Société B", service: "Drainage", budget: 80000, dateLimite: "2026-04-30", delai: "4 mois", statut: "En attente" },
+        { id: 3, titre: "Aménagement Ouest", titulaire: "Société C", service: "Aménagement", budget: 120000, dateLimite: "2026-05-15", delai: "8 mois", statut: "Terminé" },
+        { id: 4, titre: "Station de pompage Est", titulaire: "HydroTech", service: "Irrigation", budget: 95000, dateLimite: "2026-06-10", delai: "5 mois", statut: "En cours" },
+        { id: 5, titre: "Curage des canaux", titulaire: "AquaPlus", service: "Drainage", budget: 67000, dateLimite: "2026-04-20", delai: "3 mois", statut: "En attente" },
+        { id: 6, titre: "Réhabilitation barrage", titulaire: "InfraBat", service: "Aménagement", budget: 210000, dateLimite: "2026-08-01", delai: "10 mois", statut: "En cours" },
+        { id: 7, titre: "Extension réseau hydraulique", titulaire: "HydroSys", service: "Irrigation", budget: 150000, dateLimite: "2026-07-15", delai: "9 mois", statut: "Terminé" },
+        { id: 8, titre: "Protection contre inondations", titulaire: "SafeWater", service: "Drainage", budget: 185000, dateLimite: "2026-09-01", delai: "12 mois", statut: "En cours" },
+      ];
+      setMarches(defaultMarches);
+      localStorage.setItem('marches', JSON.stringify(defaultMarches));
+    }
+  };
+
+  // Charger les marchés au montage du composant
+  useEffect(() => {
+    loadMarches();
+  }, []);
+
+  // Écouter les changements de localStorage (utile si on ajoute depuis une autre fenêtre)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'marches') {
+        loadMarches();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const filteredMarches = marches.filter(
     (m) =>
-      m.titre.toLowerCase().includes(filterTitle.toLowerCase()) &&
+      m && m.titre && m.titre.toLowerCase().includes(filterTitle.toLowerCase()) &&
       (filterService ? m.service === filterService : true) &&
       (filterStatus ? m.statut === filterStatus : true)
   );
