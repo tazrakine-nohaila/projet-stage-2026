@@ -785,7 +785,7 @@ const backgroundStyle = {
   left: 0,
   width: "100%",
   height: "100%",
-  backgroundImage: "url('/img/background.jpeg')",
+  backgroundImage: "url('/img/img1.jpeg')",
   backgroundSize: "cover",
   backgroundPosition: "center",
   opacity: "0.O1", // إزالة الضبابية
