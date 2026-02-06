@@ -788,7 +788,7 @@ const backgroundStyle = {
   backgroundImage: "url('/img/background.jpeg')",
   backgroundSize: "cover",
   backgroundPosition: "center",
-  opacity: "0.1", // إزالة الضبابية
+  opacity: "0.O1", // إزالة الضبابية
   zIndex: 0,
 };
 
