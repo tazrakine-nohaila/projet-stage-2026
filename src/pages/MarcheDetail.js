@@ -6,17 +6,15 @@ function MarcheDetail() {
   const navigate = useNavigate();
   const { state: marche } = useLocation();
 
-  // 🔹 State للوثائق
+ للوثائق
   const [documents, setDocuments] = useState([]);
   const [docType, setDocType] = useState("");
-  const [inputMode, setInputMode] = useState("select"); // "select" ou "manual"
+  const [inputMode, setInputMode] = useState("select"); 
   const [customType, setCustomType] = useState("");
 
-  // 🔹 Upload handler
   const handleUpload = (e) => {
     const file = e.target.files[0];
     
-    // Déterminer le type selon le mode
     const finalType = inputMode === "select" ? docType : customType;
     
     if (!file || !finalType) {
@@ -36,20 +34,19 @@ function MarcheDetail() {
       },
     ]);
 
-    // Reset
+    
     setDocType("");
     setCustomType("");
     e.target.value = "";
   };
 
-  // 🔹 Delete handler
   const deleteDoc = (docId) => {
     if (window.confirm("Supprimer ce document ?")) {
       setDocuments(documents.filter((d) => d.id !== docId));
     }
   };
 
-  // 🔹 Download handler
+
   const downloadDoc = (doc) => {
     const url = URL.createObjectURL(doc.file);
     const a = document.createElement("a");
@@ -59,100 +56,10 @@ function MarcheDetail() {
     URL.revokeObjectURL(url);
   };
 
-  // 🔹 Description des documents
+  
   const getDocDescription = (type) => {
     const map = {
-      // Documents contractuels
-      "Cahier des Prescriptions Spéciales (CPS)": "Document définissant les exigences techniques et administratives spécifiques au marché",
-      "Cahier des Clauses Techniques Particulières (CCTP)": "Document précisant les conditions techniques d'exécution des prestations",
-      "Cahier des Clauses Administratives Particulières (CCAP)": "Document fixant les dispositions administratives applicables au marché",
-      "Cahier des Clauses Administratives Générales (CCAG)": "Document de référence pour les clauses administratives standards",
-      "Bordereau des Prix Unitaires (BPU)": "Document listant les prix unitaires de chaque prestation du marché",
-      "Détail Quantitatif Estimatif (DQE)": "Document estimant les quantités prévisionnelles des prestations",
-      "Décomposition du Prix Global et Forfaitaire (DPGF)": "Document détaillant la composition du prix global forfaitaire",
-      "Acte d'Engagement": "Document par lequel le titulaire s'engage à exécuter les travaux aux conditions du marché",
-      "Cahier des Charges": "Document regroupant l'ensemble des prescriptions techniques et administratives",
       
-      // Ordres de service
-      "Ordre de Service de Commencement": "Document ordonnant le démarrage effectif des travaux",
-      "Ordre de Service d'Arrêt": "Document ordonnant la suspension temporaire des travaux",
-      "Ordre de Service de Reprise": "Document ordonnant la reprise des travaux après suspension",
-      "Ordre de Service de Prolongation": "Document accordant une prolongation du délai d'exécution",
-      "Ordre de Service Modificatif": "Document modifiant les prescriptions techniques ou les délais",
-      
-      // Procès-verbaux
-      "Procès-Verbal de Réception Provisoire": "Document constatant l'achèvement des travaux et leur conformité provisoire",
-      "Procès-Verbal de Réception Définitive": "Document constatant la levée des réserves et la réception définitive des travaux",
-      "Procès-Verbal de Réunion de Chantier": "Compte rendu officiel des décisions prises lors des réunions de chantier",
-      "Procès-Verbal de Recette": "Document constatant la recette des installations et équipements",
-      "Procès-Verbal de Constat": "Document établissant un constat officiel sur un élément particulier",
-      "Procès-Verbal d'Essai": "Document présentant les résultats des essais et tests réalisés",
-      
-      // Documents techniques
-      "Plan d'Exécution": "Document graphique détaillant la réalisation technique des ouvrages",
-      "Plan d'Architecture": "Plans architecturaux du projet",
-      "Plan de Recollement": "Document représentant l'état réel des ouvrages tels qu'exécutés",
-      "Note de Calcul": "Document justifiant les calculs techniques et dimensionnements",
-      "Étude Technique": "Document d'analyse technique approfondie du projet",
-      "Rapport Géotechnique": "Document d'étude des caractéristiques du sol et du sous-sol",
-      "Rapport Topographique": "Document présentant le levé topographique du terrain",
-      "Étude d'Impact Environnemental": "Document évaluant les impacts environnementaux du projet",
-      "Dossier Technique": "Ensemble des documents techniques du projet",
-      
-      // Documents de suivi
-      "Attachement": "Document constatant les travaux exécutés avant leur recouvrement ou dissimulation",
-      "Décompte Provisoire": "Document établissant le montant des travaux exécutés durant une période",
-      "Décompte Général et Définitif": "Document récapitulatif final de l'ensemble des travaux exécutés",
-      "Situation des Travaux": "Document mensuel récapitulant l'avancement physique et financier des travaux",
-      "Métré": "Document quantifiant avec précision les ouvrages exécutés",
-      "Planning d'Exécution": "Document présentant le calendrier prévisionnel de réalisation des travaux",
-      "Planning Prévisionnel": "Planning initial établi avant le démarrage des travaux",
-      "Planning Actualisé": "Planning mis à jour reflétant l'avancement réel des travaux",
-      "Rapport d'Avancement": "Document détaillant la progression des travaux sur une période donnée",
-      
-      // Documents financiers
-      "Facture": "Document comptable établissant le montant dû par le maître d'ouvrage",
-      "Devis": "Document estimatif détaillant le coût prévisionnel des prestations",
-      "Mémoire des Travaux": "Document récapitulatif détaillé des travaux exécutés et leur valorisation",
-      "Demande d'Acompte": "Demande de paiement partiel pour les travaux réalisés",
-      "Garantie Bancaire": "Document attestant de la garantie financière fournie par l'entreprise",
-      "Caution de Retenue de Garantie": "Garantie permettant la libération de la retenue de garantie",
-      "Police d'Assurance": "Document d'assurance couvrant les risques liés au chantier",
-      "Assurance Décennale": "Document d'assurance couvrant les désordres durant 10 ans",
-      "Sous-Détail de Prix": "Document détaillant la composition d'un prix unitaire",
-      
-      // Documents qualité et conformité
-      "Fiche Technique": "Document présentant les caractéristiques techniques d'un matériau ou équipement",
-      "Certificat de Conformité": "Document attestant la conformité des travaux ou matériaux aux normes",
-      "Agrément Technique": "Document validant l'utilisation d'un procédé ou matériau",
-      "Rapport de Contrôle Qualité": "Document présentant les résultats des contrôles qualité effectués",
-      "Plan d'Assurance Qualité (PAQ)": "Document décrivant les dispositions pour assurer la qualité des travaux",
-      "Dossier des Ouvrages Exécutés (DOE)": "Dossier regroupant l'ensemble des documents descriptifs de l'ouvrage réalisé",
-      "Dossier d'Intervention Ultérieure sur l'Ouvrage (DIUO)": "Document de sécurité pour les interventions futures sur l'ouvrage",
-      "Plan Particulier de Sécurité et de Protection de la Santé (PPSPS)": "Document définissant les mesures de sécurité sur le chantier",
-      
-      // Correspondances administratives
-      "Courrier Administratif": "Correspondance officielle relative au marché",
-      "Lettre de Notification": "Courrier notifiant officiellement une décision ou un événement",
-      "Mise en Demeure": "Courrier formel exigeant l'exécution d'une obligation",
-      "Réclamation": "Document formulant une contestation ou une demande",
-      "Avenant au Marché": "Document modifiant les termes du marché initial",
-      
-      // Documentation de chantier
-      "Photos de Chantier": "Documentation photographique de l'avancement et de l'état des travaux",
-      "Vidéo de Chantier": "Documentation vidéo du chantier",
-      "Rapport Journalier": "Document quotidien relatant l'avancement et les incidents du chantier",
-      "Compte Rendu de Réunion": "Synthèse des discussions et décisions d'une réunion",
-      "Bon de Livraison": "Document constatant la livraison de matériaux ou équipements",
-      "Bordereau d'Envoi": "Document accompagnant l'envoi de pièces ou documents",
-      
-      // Documents d'expertise
-      "Rapport d'Expertise": "Document technique établi par un expert indépendant",
-      "Rapport d'Audit": "Document présentant les résultats d'un audit technique ou financier",
-      "Étude de Faisabilité": "Document analysant la viabilité technique et économique du projet",
-      
-      // Divers
-      "Autre Document": "Document ne correspondant pas aux catégories standards",
     };
     return map[type] || type;
   };
@@ -203,7 +110,7 @@ function MarcheDetail() {
           ← Retour
         </button>
         
-        {/* ===== HEADER AVEC TITRE DU MARCHÉ ===== */}
+        
         <div style={headerStyle}>
           <h2 style={mainTitleStyle}>
             <span style={logoIconStyle}>🌱</span>
@@ -213,7 +120,7 @@ function MarcheDetail() {
           <div style={projectTitleStyle}>CRÉDIT AGRICOLE DU MAROC</div>
         </div>
 
-        {/* ===== SECTION INFORMATIONS DU MARCHÉ ===== */}
+        
         <div style={infoCardStyle}>
           <h3 style={sectionTitleStyle}>📋 Informations du Marché</h3>
 
@@ -363,7 +270,7 @@ function MarcheDetail() {
           </div>
         </div>
 
-        {/* ===== BOUTONS ACTIONS ===== */}
+       
         <div style={actionButtonsStyle}>
           <button
             style={actionBtnStyle}
@@ -429,11 +336,11 @@ function MarcheDetail() {
           </button>
         </div>
 
-        {/* ===== UPLOAD SECTION ===== */}
+  
         <div style={uploadCardStyle}>
           <h3 style={sectionTitleStyle}>📁 Ajouter un Document</h3>
           
-          {/* Radio Buttons pour choisir le mode */}
+ 
           <div style={radioGroupStyle}>
             <label 
               style={radioLabelStyle}
@@ -601,7 +508,6 @@ function MarcheDetail() {
               </select>
             )}
 
-            {/* Mode MANUAL */}
             {inputMode === "manual" && (
               <input
                 type="text"
@@ -750,23 +656,22 @@ function MarcheDetail() {
   );
 }
 
-/* ===================== VARIABLES DE COULEUR ===================== */
+
 const COLOR_PALETTE = {
-  primary: "#2e7d32",      // Vert foncé principal (CRÉDIT AGRICOLE)
-  primaryLight: "#4caf50", // Vert moyen
-  primaryDark: "#1b5e20",  // Vert très foncé
-  secondary: "#388e3c",    // Vert secondaire
-  accent: "#8bc34a",       // Vert clair d'accent
-  background: "#f8f9fa",   // Gris très clair
-  card: "#ffffff",         // Blanc pur pour les cartes
-  text: "#212529",         // Noir pour le texte principal
-  textLight: "#6c757d",    // Gris pour le texte secondaire
-  border: "#dee2e6",       // Bordures grises claires
-  success: "#28a745",      // Vert de succès
-  warning: "#ffc107",      // Jaune d'avertissement
-  danger: "#dc3545",       // Rouge de danger
-  info: "#17a2b8",         // Bleu turquoise pour info
-  hover: "#e8f5e9",        // Vert très clair pour hover
+  primary: "#2e7d32",    
+  primaryLight: "#4caf50", 
+  primaryDark: "#1b5e20",  
+  secondary: "#388e3c",    
+  accent: "#8bc34a",      
+  background: "#f8f9fa",   
+  card: "#ffffff",    
+  text: "#212529",        
+  textLight: "#6c757d",    
+  border: "#dee2e6",      
+  success: "#28a745",    
+  danger: "#dc3545",       
+  info: "#17a2b8",         
+  hover: "#e8f5e9",        
 };
 
 /* ===================== STYLES ===================== */
@@ -1213,7 +1118,7 @@ const returnButtonStyle = {
   overflow: "hidden",
 };
 
-// إضافة أنيميشن CSS
+
 const styles = `
 @keyframes fadeIn {
   from {
@@ -1319,7 +1224,6 @@ const styles = `
 }
 `;
 
-// إضافة الأنيميشن إلى head document
 if (typeof document !== 'undefined') {
   const styleSheet = document.createElement("style");
   styleSheet.type = "text/css";
