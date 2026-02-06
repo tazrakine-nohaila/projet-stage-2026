@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom'; // Ajouter useParams
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import './Attachement.css';
 
 const Attachement = () => {
+  const { id } = useParams(); // Récupérer l'ID du marché
   const navigate = useNavigate();
   const [aoNumber, setAoNumber] = useState('');
   const [projectTitle, setProjectTitle] = useState('');
@@ -13,7 +14,6 @@ const Attachement = () => {
   const [tauxTVA, setTauxTVA] = useState(20);
   const [message, setMessage] = useState(null);
   
-  // Nouveaux états
   const [numeroAttachement, setNumeroAttachement] = useState('001');
   const [dateAttachement, setDateAttachement] = useState(new Date().toISOString().split('T')[0]);
   const [selectedItems, setSelectedItems] = useState(new Set());
@@ -85,6 +85,51 @@ const Attachement = () => {
     }
   };
 
+  // Naviguer vers la page de décompte avec les lignes cochées
+  const goToDecompte = () => {
+    if (selectedItems.size === 0) {
+      showMessage('Veuillez sélectionner au moins une ligne pour créer un décompte', 'error');
+      return;
+    }
+
+    // Filtrer uniquement les items sélectionnés
+    const selectedItemsData = items
+      .filter(item => selectedItems.has(item.id))
+      .map((item, index) => ({
+        id: index + 1, // ID séquentiel pour DecomptesPage
+        designation: item.designation,
+        unite: item.unite || "U",
+        quantite: item.quantiteCourante || item.quantiteInitiale || 1,
+        prixUnitaire: item.prixUnitaire || 2500,
+        prixTotal: (item.quantiteCourante || item.quantiteInitiale || 1) * (item.prixUnitaire || 2500)
+      }));
+
+    // Récupérer les données du marché pour les passer à DecomptesPage
+    const marche = {
+      id: id,
+      reference: aoNumber,
+      titre: projectTitle,
+      // Ajouter d'autres infos si disponibles
+    };
+
+    console.log("Données envoyées à DecomptesPage:", {
+      marche,
+      selectedItemsData,
+      fromAttachement: true
+    });
+
+    // Naviguer vers la page de décompte
+    navigate(`/marche/${id}/decomptes`, { 
+      state: { 
+        marche,
+        lignesTravaux: selectedItemsData, // Les lignes cochées
+        fromAttachement: true, // Flag pour indiquer qu'on vient de l'attachement
+        numeroAttachement,
+        dateAttachement
+      } 
+    });
+  };
+
   // Importer un fichier Excel
   const handleImportExcel = (e) => {
     const file = e.target.files[0];
@@ -99,13 +144,11 @@ const Attachement = () => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        // Supposons que la première ligne contient les en-têtes
-        // Format attendu: N° Prix | Désignations | Unité | Quantité Initiale | Quantité Courante | Prix unitaire
         const headers = jsonData[0];
         const rows = jsonData.slice(1);
 
         const importedItems = rows
-          .filter(row => row.length > 0 && row[0]) // Ignorer les lignes vides
+          .filter(row => row.length > 0 && row[0])
           .map((row, index) => ({
             id: Date.now() + index,
             numero: row[0] || '',
@@ -129,41 +172,7 @@ const Attachement = () => {
       }
     };
     reader.readAsArrayBuffer(file);
-    e.target.value = ''; // Reset input
-  };
-
-  // Naviguer vers la page de décompte avec les lignes cochées
-  const goToDecompte = () => {
-    if (selectedItems.size === 0) {
-      showMessage('Veuillez sélectionner au moins une ligne pour créer un décompte', 'error');
-      return;
-    }
-
-    // Filtrer uniquement les items sélectionnés
-    const selectedItemsData = items.filter(item => selectedItems.has(item.id));
-    
-    // Préparer les données pour la page de décompte
-    const decompteData = {
-      numeroAttachement,
-      dateAttachement,
-      aoNumber,
-      projectTitle,
-      items: selectedItemsData,
-      tauxTVA
-    };
-
-    // Sauvegarder dans localStorage
-    localStorage.setItem('decompteData', JSON.stringify(decompteData));
-    
-    console.log('Navigation vers DecomptesPage avec les données:', decompteData);
-    
-    // Naviguer vers la page de décompte
-    navigate('/decomptes/nouveau', { 
-      state: { 
-        titre: projectTitle,
-        attachementData: decompteData 
-      } 
-    });
+    e.target.value = '';
   };
 
   // Calculer les totaux
@@ -325,7 +334,7 @@ const Attachement = () => {
 
   // Retour
   const goBack = () => {
-    window.history.back();
+    navigate(`/marche/${id}`);
   };
 
   // Formatter les nombres
@@ -524,7 +533,7 @@ const Attachement = () => {
       {/* Boutons d'action */}
       <div className="action-buttons print-hide">
         <button className="btn-decompte" onClick={goToDecompte} disabled={selectedItems.size === 0}>
-          📋 Créer Décompte ({selectedItems.size})
+          📋 Créer Décompte ({selectedItems.size} lignes sélectionnées)
         </button>
         <button className="btn-excel" onClick={downloadExcel}>
           📊 Télécharger Excel
@@ -536,7 +545,7 @@ const Attachement = () => {
           🖨️ Imprimer
         </button>
         <button className="btn-back" onClick={goBack}>
-          ⬅️ Retour
+          ⬅️ Retour au marché
         </button>
       </div>
     </div>

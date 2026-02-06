@@ -1,576 +1,774 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import './DecomptesPage.css';
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
+import "./DecomptesPage.css";
 
-const DecomptePage = () => {
+function DecomptesPage() {
+  const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
+  const { state } = useLocation();
   
-  // États principaux
-  const [numeroDecompte, setNumeroDecompte] = useState('001');
-  const [dateDecompte, setDateDecompte] = useState(new Date().toISOString().split('T')[0]);
-  const [periodeDecompte, setPeriodeDecompte] = useState('');
-  const [aoNumber, setAoNumber] = useState('');
-  const [projectTitle, setProjectTitle] = useState('');
-  const [tauxTVA, setTauxTVA] = useState(20);
+  // Récupérer les données envoyées depuis Attachement
+  const marche = state?.marche || {};
+  const lignesFromAttachement = state?.lignesTravaux || [];
+  const fromAttachement = state?.fromAttachement || false;
+  const numeroAttachement = state?.numeroAttachement || '001';
+  const dateAttachement = state?.dateAttachement || new Date().toISOString().split('T')[0];
   
-  // États pour les items (initialisés depuis location.state)
-  const [items, setItems] = useState([]);
-  const [message, setMessage] = useState(null);
+  const pdfRef = useRef();
 
-  // Initialisation des données depuis location.state
+  /* =========================
+     ÉTAT POUR LE MODE D'AFFICHAGE
+  ========================== */
+  const [isPrintMode, setIsPrintMode] = useState(false);
+
+  /* =========================
+     DONNÉES PRINCIPALES
+  ========================== */
+  const [formData, setFormData] = useState({
+    numeroMarche: marche.reference || "M 01/2024",
+    exercice: new Date().getFullYear().toString(),
+    partie: "",
+    chapitre: "",
+    article: "",
+    paragraphe: "",
+    objet: marche.titre || "TRAVAUX DE CONSTRUCTION DE LA PISTE RELIANT AMEZRI ET TASSAWATE À TRAVERS TICHKI, CT IMINOULAOUEN, PROVINCE D'OUARZAZATE",
+    nomSociete: "SOCIETE ABC",
+    ville: "OUARZAZATE",
+    montantAcompte: "81.000,00",
+    rc: "123456",
+    compteEntreprise: "01234567890123456789",
+    banqueEntreprise: "CREDIT DU MAROC",
+    villeOuvertureCompte: "OUARZAZATE",
+    cnss: "CN12345",
+    patente: "P12345",
+    dateApprobation: "01/01/2024",
+    dateExecution: dateAttachement,
+    montantMarcheTTC: marche.montant || 6395520,
+    directeur: "Directeur de l'Office Régional de Mise en Valeur Agricole de Ouarzazate",
+    imputationSource: "",
+  });
+
+  /* =========================
+     ÉTATS POUR LES SIGNATURES
+  ========================== */
+  const [signatures, setSignatures] = useState({
+    chargeSuivi: "",
+    chefDepartement: "",
+    serviceType: "",
+  });
+
+  const serviceOptions = [
+    { value: "", label: "Sélectionner un service" },
+    { value: "BET", label: "BET" },
+    { value: "BTEHA", label: "BTEHA" },
+    { value: "BARES", label: "BARES" },
+  ];
+
+  /* =========================
+     LIGNES DE TRAVAUX (IMPORTÉES DEPUIS L'ATTACHEMENT)
+  ========================== */
+  const [lignesTravaux, setLignesTravaux] = useState([]);
+  const [editingCell, setEditingCell] = useState({ row: null, key: null });
+
+  // Effet pour charger les lignes depuis l'attachement
   useEffect(() => {
-    if (location.state?.attachementData) {
-      const { 
-        numeroAttachement, 
-        dateAttachement, 
-        aoNumber: aoNum, 
-        projectTitle: title, 
-        items: attachementItems,
-        tauxTVA: tva 
-      } = location.state.attachementData;
+    if (fromAttachement && lignesFromAttachement.length > 0) {
+      console.log("Chargement des lignes depuis l'attachement:", lignesFromAttachement);
       
-      // Préparer les items pour le décompte
-      const decompteItems = attachementItems.map(item => ({
-        ...item,
-        id: item.id || Date.now() + Math.random(),
-        quantiteCumulee: 0, // Quantité cumulée des décomptes précédents
-        quantiteDecomptee: 0, // Quantité à décompter dans ce décompte
-        quantiteRestante: item.quantiteCourante, // Quantité restante à décompter
-        montantDecompte: 0 // Montant = quantiteDecomptee * prixUnitaire
+      // Transformer les données de l'attachement au format DecomptesPage
+      const transformedLignes = lignesFromAttachement.map((item, index) => ({
+        id: index + 1,
+        designation: item.designation || `Ligne ${index + 1}`,
+        unite: item.unite || "U",
+        quantite: item.quantite || 1,
+        prixUnitaire: item.prixUnitaire || 2500,
+        prixTotal: item.prixTotal || ((item.quantite || 1) * (item.prixUnitaire || 2500))
       }));
       
-      setItems(decompteItems);
-      setAoNumber(aoNum || '');
-      setProjectTitle(title || '');
-      setTauxTVA(tva || 20);
+      setLignesTravaux(transformedLignes);
       
-      // Générer un numéro de décompte basé sur l'attachement
-      setNumeroDecompte(`DEC-${numeroAttachement}`);
-      setDateDecompte(dateAttachement || new Date().toISOString().split('T')[0]);
+      // Calculer le total TTC initial
+      const totalHT = transformedLignes.reduce((sum, ligne) => sum + ligne.prixTotal, 0);
+      const totalTTC = totalHT * 1.2; // Avec TVA 20%
+      
+      setFormData(prev => ({
+        ...prev,
+        montantMarcheTTC: totalTTC
+      }));
+      
+      // Mettre à jour les calculs
+      setCalculs(prev => ({
+        ...prev,
+        totalHT: totalHT,
+        totalGlobalHT: totalHT,
+        tvaMontant: totalHT * 0.2,
+        totalGlobalTTC: totalTTC
+      }));
     } else {
-      // Fallback vers localStorage si pas de state
-      const decompteData = JSON.parse(localStorage.getItem('decompteData') || '{}');
-      if (decompteData.items && decompteData.items.length > 0) {
-        setItems(decompteData.items);
-        setAoNumber(decompteData.aoNumber || '');
-        setProjectTitle(decompteData.projectTitle || '');
-        setTauxTVA(decompteData.tauxTVA || 20);
-        setNumeroDecompte(decompteData.numeroDecompte || '001');
-        setDateDecompte(decompteData.dateDecompte || new Date().toISOString().split('T')[0]);
-        setPeriodeDecompte(decompteData.periodeDecompte || '');
-      }
+      // Si pas d'importation, utiliser les données statiques
+      setLignesTravaux([
+        { id: 1, designation: "Libellé 01", unite: "U", quantite: 1, prixUnitaire: 2500, prixTotal: 2500 },
+        { id: 2, designation: "Libellé 02", unite: "U", quantite: 4, prixUnitaire: 2500, prixTotal: 10000 },
+        { id: 3, designation: "Libellé 03", unite: "U", quantite: 4, prixUnitaire: 2500, prixTotal: 10000 },
+        { id: 4, designation: "Libellé 04", unite: "U", quantite: 4, prixUnitaire: 2500, prixTotal: 10000 },
+        { id: 5, designation: "Libellé 05", unite: "U", quantite: 4, prixUnitaire: 2500, prixTotal: 10000 },
+        { id: 6, designation: "Libellé 06", unite: "U", quantite: 3, prixUnitaire: 2500, prixTotal: 7500 },
+        { id: 7, designation: "Libellé 07", unite: "U", quantite: 4, prixUnitaire: 2500, prixTotal: 10000 },
+        { id: 8, designation: "Libellé 08", unite: "U", quantite: 3, prixUnitaire: 2500, prixTotal: 7500 },
+      ]);
     }
-  }, [location.state]);
+  }, [fromAttachement, lignesFromAttachement, numeroAttachement]);
 
-  // Afficher un message temporaire
-  const showMessage = (text, type = "success") => {
-    setMessage({ text, type });
-    setTimeout(() => setMessage(null), 3000);
+  // Fonction pour mettre à jour une cellule spécifique
+  const updateCell = (rowIndex, key, value) => {
+    const updated = [...lignesTravaux];
+    if (key === "quantite" || key === "prixUnitaire") {
+      value = parseFloat(value) || 0;
+      updated[rowIndex][key] = value;
+      updated[rowIndex].prixTotal = updated[rowIndex].quantite * updated[rowIndex].prixUnitaire;
+    } else {
+      updated[rowIndex][key] = value;
+    }
+    setLignesTravaux(updated);
   };
 
-  // Mettre à jour la quantité décomptée
-  const updateQuantiteDecomptee = (id, newQuantite) => {
-    setItems(items.map(item => {
-      if (item.id === id) {
-        const quantiteNum = parseFloat(newQuantite) || 0;
-        const quantiteRestante = item.quantiteRestante || item.quantiteCourante;
-        
-        // Validation : ne pas dépasser la quantité restante
-        if (quantiteNum > quantiteRestante) {
-          showMessage(`La quantité ne peut pas dépasser ${quantiteRestante.toFixed(2)}`, 'error');
-          return item;
-        }
-        
-        const montantDecompte = quantiteNum * (item.prixUnitaire || 0);
-        
-        return {
-          ...item,
-          quantiteDecomptee: quantiteNum,
-          montantDecompte: montantDecompte
-        };
-      }
-      return item;
-    }));
+  // Fonction pour rendre une cellule (lecture ou édition)
+  const renderCell = (ligne, rowIndex, key, isPrint = false) => {
+    if (isPrint) {
+      return (
+        <span className="cell-value-print">
+          {key === "prixTotal" ? formatNumber(ligne[key]) : 
+           key === "quantite" || key === "prixUnitaire" ? formatNumber(ligne[key]) : ligne[key]}
+        </span>
+      );
+    }
+    
+    if (editingCell.row === rowIndex && editingCell.key === key) {
+      return (
+        <input
+          type={key === "quantite" || key === "prixUnitaire" ? "number" : "text"}
+          value={ligne[key]}
+          onChange={(e) => updateCell(rowIndex, key, e.target.value)}
+          onBlur={() => setEditingCell({ row: null, key: null })}
+          onKeyDown={(e) => e.key === 'Enter' && setEditingCell({ row: null, key: null })}
+          autoFocus
+          className="cell-input"
+        />
+      );
+    }
+    return (
+      <span 
+        onClick={() => setEditingCell({ row: rowIndex, key })}
+        className="cell-value"
+      >
+        {key === "prixTotal" ? formatNumber(ligne[key]) : 
+         key === "quantite" || key === "prixUnitaire" ? formatNumber(ligne[key]) : ligne[key]}
+      </span>
+    );
   };
 
-  // Calculer les totaux
-  const calculateTotals = () => {
-    const totalDecompteHT = items.reduce((sum, item) => sum + (item.montantDecompte || 0), 0);
-    const totalTVA = totalDecompteHT * (tauxTVA / 100);
-    const totalDecompteTTC = totalDecompteHT + totalTVA;
-    
-    const totalInitialHT = items.reduce((sum, item) => {
-      const totalItem = (item.quantiteCourante || 0) * (item.prixUnitaire || 0);
-      return sum + totalItem;
-    }, 0);
-    
-    const totalCumuleHT = items.reduce((sum, item) => sum + (item.quantiteCumulee || 0) * (item.prixUnitaire || 0), 0);
-    const totalRestantHT = totalInitialHT - totalCumuleHT - totalDecompteHT;
-    
-    return { 
-      totalDecompteHT, 
-      totalTVA, 
-      totalDecompteTTC,
-      totalInitialHT,
-      totalCumuleHT,
-      totalRestantHT
+  // Fonction pour supprimer une ligne
+  const deleteLine = (index) => {
+    if (!window.confirm("Supprimer cette ligne ?")) return;
+    setLignesTravaux(lignesTravaux.filter((_, i) => i !== index));
+    if (editingCell.row === index) setEditingCell({ row: null, key: null });
+  };
+
+  // Fonction pour ajouter une ligne
+  const addNewLine = () => {
+    const newLine = { 
+      id: lignesTravaux.length + 1, 
+      designation: `Libellé ${(lignesTravaux.length + 1).toString().padStart(2, '0')}`, 
+      unite: "U", 
+      quantite: 1, 
+      prixUnitaire: 2500, 
+      prixTotal: 2500 
     };
+    setLignesTravaux([...lignesTravaux, newLine]);
   };
 
-  const totals = calculateTotals();
+  /* =========================
+     ÉTATS POUR LES DÉPENSES
+  ========================== */
+  const [depenses, setDepenses] = useState({
+    travauxTermines: 0,
+    travauxNonTermines: 0,
+    approvisionnement: 0,
+  });
 
-  // Télécharger en Excel
-  const downloadExcel = () => {
-    if (items.length === 0) {
-      showMessage('Aucune donnée à exporter', 'error');
-      return;
+  /* =========================
+     ÉTATS POUR LES CALCULS
+  ========================== */
+  const [calculs, setCalculs] = useState({
+    totalHT: 0,
+    revisionPrix: 0,
+    totalGlobalHT: 0,
+    tvaPourcentage: 20,
+    tvaMontant: 0,
+    totalGlobalTTC: 0,
+    retenueGarantie: 0,
+    montantPaye: 0,
+    acompteDelivrer: 0,
+  });
+
+  /* =========================
+     CALCULS AUTOMATIQUES
+  ========================== */
+  useEffect(() => {
+    // Calcul du total HT des travaux
+    const totalHT = lignesTravaux.reduce((sum, ligne) => sum + ligne.prixTotal, 0);
+
+    // Calcul du total global HT
+    const totalGlobalHT = totalHT + calculs.revisionPrix;
+    
+    // Calcul TVA
+    let tvaMontant;
+    if (calculs.tvaPourcentage > 0) {
+      tvaMontant = totalGlobalHT * (calculs.tvaPourcentage / 100);
+    } else {
+      tvaMontant = calculs.tvaMontant;
     }
+    
+    // Calcul total TTC
+    const totalGlobalTTC = totalGlobalHT + tvaMontant;
 
-    const ws_data = [
-      [`DÉCOMPTE N° ${numeroDecompte}`],
-      [`Date: ${new Date(dateDecompte).toLocaleDateString('fr-FR')}`],
-      [`Période: ${periodeDecompte || 'Non spécifiée'}`],
-      [`AOOI N° : ${aoNumber}`],
-      [projectTitle],
+    setCalculs(prev => ({
+      ...prev,
+      totalHT,
+      totalGlobalHT,
+      tvaMontant,
+      totalGlobalTTC,
+    }));
+  }, [lignesTravaux, calculs.revisionPrix, calculs.tvaPourcentage, calculs.tvaMontant]);
+
+  /* =========================
+     GESTION DES FORMULAIRES
+  ========================== */
+  const handleFormChange = (field, value) => {
+    setFormData({ ...formData, [field]: value });
+  };
+
+  const handleSignatureChange = (field, value) => {
+    setSignatures({ ...signatures, [field]: value });
+  };
+
+  const handleDepenseChange = (field, value) => {
+    setDepenses({
+      ...depenses,
+      [field]: parseFloat(value) || 0
+    });
+  };
+
+  const handleCalculChange = (field, value) => {
+    const numValue = parseFloat(value) || 0;
+    
+    if (field === 'tvaPourcentage') {
+      setCalculs({
+        ...calculs,
+        tvaPourcentage: numValue,
+        tvaMontant: 0,
+      });
+    } else if (field === 'tvaMontant') {
+      setCalculs({
+        ...calculs,
+        tvaMontant: numValue,
+        tvaPourcentage: 0,
+      });
+    } else {
+      setCalculs({
+        ...calculs,
+        [field]: numValue
+      });
+    }
+  };
+
+  /* =========================
+     FONCTION POUR TÉLÉCHARGER PDF
+  ========================== */
+  const downloadPDF = () => {
+    setIsPrintMode(true);
+    setTimeout(() => {
+      const input = pdfRef.current;
+      html2canvas(input, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff"
+      }).then((canvas) => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgWidth = 210;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        pdf.save(`decompte_${formData.numeroMarche}_${new Date().toISOString().split('T')[0]}.pdf`);
+        setIsPrintMode(false);
+      });
+    }, 100);
+  };
+
+  /* =========================
+     FONCTION POUR IMPRIMER
+  ========================== */
+  const printDocument = () => {
+    setIsPrintMode(true);
+    setTimeout(() => {
+      window.print();
+      setIsPrintMode(false);
+    }, 100);
+  };
+
+  /* =========================
+     TÉLÉCHARGEMENT EXCEL
+  ========================== */
+  const downloadExcel = () => {
+    const wsData = [
+      ["DÉCOMPTE DE TRAVAUX"],
+      [`N° Marché: ${formData.numeroMarche}`],
+      [`Objet: ${formData.objet}`],
+      [`Date: ${formData.dateExecution}`],
       [],
-      ['DÉCOMPTE DES QUANTITÉS'],
-      [],
-      ['N° Prix', 'Désignation', 'Unité', 'Qté Initiale', 'Qté Cumulée', 'Qté à décompter', 'Qté Restante', 'Prix unitaire (HT)', 'Montant']
+      ["N° prix", "Désignation des prestations", "Unité", "Quantité", "Prix unitaire hors TVA (DH)", "Prix total hors TVA (DH)"]
     ];
 
-    items.forEach(item => {
-      const quantiteRestante = (item.quantiteRestante || item.quantiteCourante) - (item.quantiteDecomptee || 0);
-      ws_data.push([
-        item.numero,
-        item.designation,
-        item.unite,
-        item.quantiteCourante,
-        item.quantiteCumulee || 0,
-        item.quantiteDecomptee || 0,
-        Math.max(0, quantiteRestante).toFixed(2),
-        item.prixUnitaire,
-        item.montantDecompte || 0
+    lignesTravaux.forEach(ligne => {
+      wsData.push([
+        ligne.id,
+        ligne.designation,
+        ligne.unite,
+        ligne.quantite,
+        formatNumber(ligne.prixUnitaire),
+        formatNumber(ligne.prixTotal)
       ]);
     });
 
-    ws_data.push([]);
-    ws_data.push(['', '', '', '', '', '', '', 'TOTAL DÉCOMPTE HT', totals.totalDecompteHT]);
-    ws_data.push(['', '', '', '', '', '', '', `TVA (${tauxTVA}%)`, totals.totalTVA]);
-    ws_data.push(['', '', '', '', '', '', '', 'TOTAL DÉCOMPTE TTC', totals.totalDecompteTTC]);
-    ws_data.push([]);
-    ws_data.push(['', '', '', '', '', '', '', 'TOTAL INITIAL HT', totals.totalInitialHT]);
-    ws_data.push(['', '', '', '', '', '', '', 'TOTAL CUMULÉ HT', totals.totalCumuleHT]);
-    ws_data.push(['', '', '', '', '', '', '', 'TOTAL RESTANT HT', totals.totalRestantHT]);
+    wsData.push([]);
+    wsData.push(["TOTAL HORS TAXES", "", "", "", "", formatNumber(calculs.totalHT)]);
+    wsData.push(["TOTAL GLOBAL HORS TAXES", "", "", "", "", formatNumber(calculs.totalGlobalHT)]);
+    wsData.push([`MONTANT DE LA TVA ${calculs.tvaPourcentage}%`, "", "", "", "", formatNumber(calculs.tvaMontant)]);
+    wsData.push(["TOTAL GLOBAL TTC", "", "", "", "", formatNumber(calculs.totalGlobalTTC)]);
 
-    const ws = XLSX.utils.aoa_to_sheet(ws_data);
-    
-    ws['!cols'] = [
-      { wch: 10 },
-      { wch: 45 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 15 },
-      { wch: 15 }
-    ];
-
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Décompte');
+    XLSX.utils.book_append_sheet(wb, ws, "Décompte");
     
-    XLSX.writeFile(wb, `Decompte_${numeroDecompte}_${aoNumber.replace(/\//g, '-')}.xlsx`);
-    showMessage('Excel téléchargé avec succès', 'success');
+    XLSX.writeFile(wb, `decompte_${formData.numeroMarche}.xlsx`);
   };
 
-  // Télécharger en PDF
-  const downloadPDF = () => {
-    if (items.length === 0) {
-      showMessage('Aucune donnée à exporter', 'error');
-      return;
-    }
-
-    const doc = new jsPDF('l', 'mm', 'a4');
-    
-    // En-tête
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`DÉCOMPTE N° ${numeroDecompte}`, 14, 15);
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Date: ${new Date(dateDecompte).toLocaleDateString('fr-FR')}`, 14, 22);
-    
-    if (periodeDecompte) {
-      doc.text(`Période: ${periodeDecompte}`, 14, 29);
-    }
-    
-    doc.text(`AOOI N° : ${aoNumber}`, 14, 36);
-    
-    const titleLines = doc.splitTextToSize(projectTitle, 260);
-    let startY = 36;
-    titleLines.forEach(line => {
-      doc.text(line, 14, startY + 5);
-      startY += 5;
-    });
-    
-    startY += 10;
-    
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('DÉCOMPTE DES QUANTITÉS', 14, startY);
-    
-    startY += 10;
-
-    // Tableau des données
-    const tableData = items.map(item => {
-      const quantiteRestante = (item.quantiteRestante || item.quantiteCourante) - (item.quantiteDecomptee || 0);
-      return [
-        item.numero,
-        item.designation,
-        item.unite,
-        item.quantiteCourante.toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
-        (item.quantiteCumulee || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
-        (item.quantiteDecomptee || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
-        Math.max(0, quantiteRestante).toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
-        item.prixUnitaire.toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
-        (item.montantDecompte || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })
-      ];
-    });
-
-    doc.autoTable({
-      head: [['N°', 'Désignation', 'Unité', 'Qté Init.', 'Qté Cum.', 'Qté Décomp.', 'Qté Rest.', 'P.U. (HT)', 'Montant']],
-      body: tableData,
-      startY: startY,
-      theme: 'grid',
-      styles: { 
-        fontSize: 8,
-        cellPadding: 2
-      },
-      headStyles: {
-        fillColor: [52, 152, 219],
-        textColor: 255,
-        fontStyle: 'bold'
-      },
-      columnStyles: {
-        0: { cellWidth: 15 },
-        1: { cellWidth: 65 },
-        2: { cellWidth: 15 },
-        3: { cellWidth: 20, halign: 'right' },
-        4: { cellWidth: 20, halign: 'right' },
-        5: { cellWidth: 20, halign: 'right' },
-        6: { cellWidth: 20, halign: 'right' },
-        7: { cellWidth: 20, halign: 'right' },
-        8: { cellWidth: 25, halign: 'right' }
-      }
-    });
-
-    const finalY = doc.lastAutoTable.finalY + 5;
-
-    // Tableau des totaux
-    doc.autoTable({
-      startY: finalY,
-      body: [
-        ['TOTAL DÉCOMPTE HT', totals.totalDecompteHT.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' DH'],
-        [`TOTAL TVA (${tauxTVA}%)`, totals.totalTVA.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' DH'],
-        ['TOTAL DÉCOMPTE TTC', totals.totalDecompteTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' DH'],
-        ['', ''],
-        ['TOTAL INITIAL HT', totals.totalInitialHT.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' DH'],
-        ['TOTAL CUMULÉ HT', totals.totalCumuleHT.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' DH'],
-        ['TOTAL RESTANT HT', totals.totalRestantHT.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' DH']
-      ],
-      theme: 'plain',
-      styles: { 
-        fontSize: 9,
-        cellPadding: 3,
-        fontStyle: 'bold'
-      },
-      columnStyles: {
-        0: { halign: 'right', cellWidth: 185 },
-        1: { halign: 'right', cellWidth: 40 }
-      }
-    });
-
-    doc.save(`Decompte_${numeroDecompte}_${aoNumber.replace(/\//g, '-')}.pdf`);
-    showMessage('PDF téléchargé avec succès', 'success');
-  };
-
-  // Sauvegarder le décompte
-  const saveDecompte = () => {
-    if (items.length === 0) {
-      showMessage('Aucune donnée à sauvegarder', 'error');
-      return;
-    }
-
-    const decompteData = {
-      numeroDecompte,
-      dateDecompte,
-      periodeDecompte,
-      aoNumber,
-      projectTitle,
-      items: items.map(item => ({
-        ...item,
-        quantiteCumulee: (item.quantiteCumulee || 0) + (item.quantiteDecomptee || 0),
-        quantiteDecomptee: 0, // Réinitialiser pour nouveau décompte
-        quantiteRestante: (item.quantiteRestante || item.quantiteCourante) - (item.quantiteDecomptee || 0)
-      })),
-      tauxTVA,
-      totals: calculateTotals()
-    };
-
-    // Sauvegarder dans localStorage
-    localStorage.setItem('decompteData', JSON.stringify(decompteData));
-    
-    showMessage('Décompte sauvegardé avec succès', 'success');
-  };
-
-  // Imprimer
-  const handlePrint = () => {
-    if (items.length === 0) {
-      showMessage('Aucune donnée à imprimer', 'error');
-      return;
-    }
-    window.print();
-  };
-
-  // Retour à l'attachement
-  const goBack = () => {
-    navigate(-1);
-  };
-
-  // Formatter les nombres
+  /* =========================
+     FONCTIONS UTILITAIRES
+  ========================== */
   const formatNumber = (num) => {
-    if (isNaN(num)) return "0.00";
-    return num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(num);
   };
 
-  // Calculer le pourcentage de réalisation
-  const calculatePourcentage = () => {
-    if (totals.totalInitialHT === 0) return 0;
-    const realise = totals.totalCumuleHT + totals.totalDecompteHT;
-    return ((realise / totals.totalInitialHT) * 100).toFixed(2);
-  };
-
+  /* =========================
+     RENDER PRINCIPAL
+  ========================== */
   return (
-    <div className="decompte-container">
-      {/* Message de notification */}
-      {message && (
-        <div 
-          className="message-notification print-hide"
-          style={{
-            background: message.type === "success" ? "#4CAF50" : "#f44336"
-          }}
-        >
-          {message.text}
+    <section className="decomptes-container">
+      {/* Afficher un message si les données viennent de l'attachement */}
+      {fromAttachement && (
+        <div className="import-success-message">
+          ✅ Décompte créé à partir de l'attachement {numeroAttachement} du {dateAttachement}
+          <br />
+          {lignesTravaux.length} lignes importées
         </div>
       )}
 
-      {/* En-tête */}
-      <div className="header-section">
-        <div className="header-row">
-          <div className="header-item">
-            <label>DÉCOMPTE N° :</label>
-            <input 
-              type="text" 
-              value={numeroDecompte}
-              onChange={(e) => setNumeroDecompte(e.target.value)}
-              className="header-input no-print-border"
-            />
+      {/* Version édition (affichée normalement) */}
+      <div ref={pdfRef} className="decompte-pdf-view">
+        {/* En-tête */}
+        <div className="header-edition">
+          <div className="header-left">
+            <div className="ministry">
+              ROYAUME DU MAROC<br />
+              MINISTERE DE L'AGRICULTURE,<br />
+              DE LA PECHE MARITIME, DU<br />
+              DEVELOPPEMENT RURAL ET DES EAUX<br />
+              ET FORETS<br />
+              OFFICE REGIONAL DE MISE EN VALEUR<br />
+              AGRICOLE DE OUARZAZATE
+            </div>
           </div>
-          <div className="header-item">
-            <label>Date :</label>
-            <input 
-              type="date" 
-              value={dateDecompte}
-              onChange={(e) => setDateDecompte(e.target.value)}
-              className="header-input no-print-border"
-            />
+          
+          <div className="header-right">
+            <div className="fiche-title">FICHE DE DEPENSE</div>
+            <div className="fiche-details">
+              <div className="input-group">
+                <label>EXERCICE</label>
+                <input
+                  type="text"
+                  value={formData.exercice}
+                  onChange={(e) => handleFormChange('exercice', e.target.value)}
+                  className="input-small"
+                />
+              </div>
+              <div className="input-group">
+                <label>PARTIE</label>
+                <input
+                  type="text"
+                  value={formData.partie}
+                  onChange={(e) => handleFormChange('partie', e.target.value)}
+                  className="input-small"
+                />
+              </div>
+              <div className="input-group">
+                <label>CHAPITRE</label>
+                <input
+                  type="text"
+                  value={formData.chapitre}
+                  onChange={(e) => handleFormChange('chapitre', e.target.value)}
+                  className="input-small"
+                />
+              </div>
+              <div className="input-group">
+                <label>ARTICLE</label>
+                <input
+                  type="text"
+                  value={formData.article}
+                  onChange={(e) => handleFormChange('article', e.target.value)}
+                  className="input-small"
+                />
+              </div>
+              <div className="input-group">
+                <label>PARAGRAPHE</label>
+                <input
+                  type="text"
+                  value={formData.paragraphe}
+                  onChange={(e) => handleFormChange('paragraphe', e.target.value)}
+                  className="input-small"
+                />
+              </div>
+            </div>
           </div>
-          <div className="header-item">
-            <label>Période :</label>
-            <input 
-              type="text" 
-              value={periodeDecompte}
-              onChange={(e) => setPeriodeDecompte(e.target.value)}
-              placeholder="Ex: Juin 2024"
-              className="header-input no-print-border"
-            />
-          </div>
-        </div>
-        
-        <div className="ao-number">
-          <strong>AOOI N° :</strong> {aoNumber}
-        </div>
-        
-        <div className="project-title">
-          {projectTitle}
         </div>
 
-        <h2 className="page-title">DÉCOMPTE DES QUANTITÉS</h2>
-      </div>
-
-      {/* Informations TVA */}
-      <div className="tva-section print-hide">
-        <div className="tva-control">
-          <label>
-            <strong>Taux de TVA (%) :</strong>
-          </label>
-          <input 
-            type="number"
-            min="0"
-            max="100"
-            step="0.1"
-            value={tauxTVA}
-            onChange={(e) => {
-              const newTaux = parseFloat(e.target.value);
-              if (newTaux >= 0 && newTaux <= 100) {
-                setTauxTVA(newTaux);
-              }
-            }}
-            className="tva-input"
-          />
+        {/* Imputation source financement */}
+        <div className="imputation-section">
+          <strong>Imputation source financement</strong>
         </div>
-      </div>
 
-      {/* Tableau des décomptes */}
-      <div className="table-wrapper">
-        <table className="decompte-table">
+        {/* Informations du marché */}
+        <div className="marche-info">
+          <div className="info-row">
+            <strong>MARCHE N° :</strong>
+            <input
+              type="text"
+              value={formData.numeroMarche}
+              onChange={(e) => handleFormChange('numeroMarche', e.target.value)}
+              className="input-medium"
+              placeholder="......"
+            />
+          </div>
+          <div className="info-row">
+            <strong>Objet :</strong>
+            <input
+              type="text"
+              value={formData.objet}
+              onChange={(e) => handleFormChange('objet', e.target.value)}
+              className="input-large"
+              placeholder="......"
+            />
+          </div>
+        </div>
+
+        {/* Informations entreprise */}
+        <div className="entreprise-info">
+          <div className="info-row">
+            <strong>M.</strong>
+            <input
+              type="text"
+              value={formData.nomSociete}
+              onChange={(e) => handleFormChange('nomSociete', e.target.value)}
+              className="input-medium"
+              placeholder="......"
+            />
+            <strong>A.</strong>
+            <input
+              type="text"
+              value={formData.ville}
+              onChange={(e) => handleFormChange('ville', e.target.value)}
+              className="input-medium"
+              placeholder="......"
+            />
+          </div>
+          
+          <div className="info-row">
+            <strong>Montant de l'acompte</strong>
+            <input
+              type="text"
+              value={formData.montantAcompte}
+              onChange={(e) => handleFormChange('montantAcompte', e.target.value)}
+              className="input-medium"
+              placeholder="81.000,00 DHS"
+            />
+          </div>
+          
+          <div className="info-row">
+            <strong>R.C. N° :</strong>
+            <input
+              type="text"
+              value={formData.rc}
+              onChange={(e) => handleFormChange('rc', e.target.value)}
+              className="input-medium"
+              placeholder="......"
+            />
+            <strong>A</strong>
+          </div>
+          
+          <div className="info-row">
+            <strong>CREDIT DU MAROC N° :</strong>
+            <input
+              type="text"
+              value={formData.compteEntreprise}
+              onChange={(e) => handleFormChange('compteEntreprise', e.target.value)}
+              className="input-medium"
+              placeholder="xxxxxxxxxxxxxxxxxxxxxx"
+            />
+            <strong>A AGENCE</strong>
+            <input
+              type="text"
+              value={formData.villeOuvertureCompte}
+              onChange={(e) => handleFormChange('villeOuvertureCompte', e.target.value)}
+              className="input-small"
+              placeholder="......"
+            />
+          </div>
+          
+          <div className="info-row">
+            <strong>OUVERT AU NOM DE LA SOCIETE</strong>
+            <input
+              type="text"
+              value={formData.nomSociete}
+              onChange={(e) => handleFormChange('nomSociete', e.target.value)}
+              className="input-large"
+              placeholder="......"
+            />
+          </div>
+          
+          <div className="info-row">
+            <strong>C.N.S.S N° :</strong>
+            <input
+              type="text"
+              value={formData.cnss}
+              onChange={(e) => handleFormChange('cnss', e.target.value)}
+              className="input-medium"
+              placeholder="......"
+            />
+            <strong>PATENTE N° :</strong>
+            <input
+              type="text"
+              value={formData.patente}
+              onChange={(e) => handleFormChange('patente', e.target.value)}
+              className="input-medium"
+              placeholder="......"
+            />
+          </div>
+        </div>
+
+        {/* Marché approuvé */}
+        <div className="marche-approuve">
+          <div className="info-row">
+            <strong>Marché O.R.M.V.A.O. Approuvé le</strong>
+            <input
+              type="text"
+              value={formData.dateApprobation}
+              onChange={(e) => handleFormChange('dateApprobation', e.target.value)}
+              className="input-medium"
+              placeholder="......"
+            />
+            <strong>par {formData.directeur}</strong>
+          </div>
+        </div>
+
+        {/* Titre du décompte */}
+        <div className="decompte-title">
+          <h2>DECOMPTE PROVISOIRE N° <input type="text" className="input-numero-decompte" placeholder="X" /></h2>
+          <h3>des prestations exécutées et des dépenses faites à la date du <input type="text" value={formData.dateExecution} onChange={(e) => handleFormChange('dateExecution', e.target.value)} className="input-date-decompte" /></h3>
+        </div>
+
+        {/* Tableau des travaux - STRUCTURE IDENTIQUE À L'IMAGE */}
+        <table className="travaux-table">
           <thead>
             <tr>
-              <th>N° Prix</th>
-              <th>Désignations des prestations</th>
+              <th>N° prix</th>
+              <th>Désignation des prestations</th>
               <th>Unité</th>
-              <th>Quantité Initiale</th>
-              <th>Quantité Cumulée</th>
-              <th>Quantité à décompter</th>
-              <th>Quantité Restante</th>
-              <th>Prix unitaire (Hors TVA)</th>
-              <th>Montant Décompte</th>
+              <th>Quantité</th>
+              <th>Prix unitaire hors TVA (DH)</th>
+              <th>Prix total hors TVA (DH)</th>
+              {!isPrintMode && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan="9" className="no-data-message">
-                  Aucune donnée. Veuillez sélectionner des items depuis l'attachement.
-                </td>
+            {lignesTravaux.map((ligne, index) => (
+              <tr key={ligne.id}>
+                <td>{ligne.id}</td>
+                <td>{renderCell(ligne, index, 'designation', isPrintMode)}</td>
+                <td>{renderCell(ligne, index, 'unite', isPrintMode)}</td>
+                <td>{renderCell(ligne, index, 'quantite', isPrintMode)}</td>
+                <td>{renderCell(ligne, index, 'prixUnitaire', isPrintMode)}</td>
+                <td>{renderCell(ligne, index, 'prixTotal', isPrintMode)}</td>
+                {!isPrintMode && (
+                  <td>
+                    <button 
+                      className="btn-delete-line"
+                      onClick={() => deleteLine(index)}
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                )}
               </tr>
-            ) : (
-              items.map((item) => {
-                const quantiteRestante = (item.quantiteRestante || item.quantiteCourante) - (item.quantiteDecomptee || 0);
-                const montantDecompte = (item.quantiteDecomptee || 0) * (item.prixUnitaire || 0);
-                
-                return (
-                  <tr key={item.id}>
-                    <td className="numero-cell">{item.numero}</td>
-                    <td className="designation-cell">{item.designation}</td>
-                    <td className="unite-cell">{item.unite}</td>
-                    <td className="quantite-cell">{formatNumber(item.quantiteCourante)}</td>
-                    <td className="quantite-cell">{formatNumber(item.quantiteCumulee || 0)}</td>
-                    <td className="quantite-input-cell">
-                      <input 
-                        type="number"
-                        min="0"
-                        max={item.quantiteRestante || item.quantiteCourante}
-                        step="0.01"
-                        value={item.quantiteDecomptee || 0}
-                        onChange={(e) => updateQuantiteDecomptee(item.id, e.target.value)}
-                        className="quantite-input no-print-border"
-                        title={`Max: ${formatNumber(item.quantiteRestante || item.quantiteCourante)}`}
-                      />
-                    </td>
-                    <td className="quantite-cell">
-                      {formatNumber(Math.max(0, quantiteRestante))}
-                    </td>
-                    <td className="prix-cell">{formatNumber(item.prixUnitaire)}</td>
-                    <td className="montant-cell">
-                      {formatNumber(montantDecompte)}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
+            ))}
           </tbody>
-          {items.length > 0 && (
-            <tfoot>
-              <tr className="total-row">
-                <td colSpan="8" className="total-label">
-                  TOTAL DÉCOMPTE HT
-                </td>
-                <td className="total-value">{formatNumber(totals.totalDecompteHT)}</td>
-              </tr>
-              <tr className="total-row">
-                <td colSpan="8" className="total-label">
-                  TOTAL TVA ({tauxTVA} %)
-                </td>
-                <td className="total-value">{formatNumber(totals.totalTVA)}</td>
-              </tr>
-              <tr className="total-row total-ttc">
-                <td colSpan="8" className="total-label">
-                  TOTAL DÉCOMPTE TTC
-                </td>
-                <td className="total-value">{formatNumber(totals.totalDecompteTTC)}</td>
-              </tr>
-              <tr className="separator-row">
-                <td colSpan="9" className="separator-cell"></td>
-              </tr>
-              <tr className="info-row">
-                <td colSpan="8" className="info-label">
-                  <strong>TOTAL INITIAL HT :</strong>
-                </td>
-                <td className="info-value">{formatNumber(totals.totalInitialHT)}</td>
-              </tr>
-              <tr className="info-row">
-                <td colSpan="8" className="info-label">
-                  <strong>TOTAL CUMULÉ HT :</strong>
-                </td>
-                <td className="info-value">{formatNumber(totals.totalCumuleHT)}</td>
-              </tr>
-              <tr className="info-row">
-                <td colSpan="8" className="info-label">
-                  <strong>TOTAL RESTANT HT :</strong>
-                </td>
-                <td className="info-value">{formatNumber(totals.totalRestantHT)}</td>
-              </tr>
-              <tr className="info-row">
-                <td colSpan="8" className="info-label">
-                  <strong>% DE RÉALISATION :</strong>
-                </td>
-                <td className="info-value">
-                  <span className="pourcentage-realisation">
-                    {calculatePourcentage()}%
-                  </span>
-                </td>
-              </tr>
-            </tfoot>
-          )}
         </table>
+
+        {/* Section récapitulative - STRUCTURE IDENTIQUE À L'IMAGE */}
+        <div className="recap-section">
+          <div className="recap-row">
+            <span>TOTAL HORS TAXES</span>
+            <span className="recap-value">{formatNumber(calculs.totalHT)}</span>
+          </div>
+          
+          <div className="recap-row">
+            <span>TOTAL GLOBAL HORS TAXES</span>
+            <span className="recap-value">{formatNumber(calculs.totalGlobalHT)}</span>
+          </div>
+          
+          <div className="recap-row tva-row">
+            <span>MONTANT DE LA TVA {calculs.tvaPourcentage}%</span>
+            {!isPrintMode ? (
+              <div className="tva-inputs">
+                <div className="tva-percentage">
+                  <span>%</span>
+                  <input
+                    type="number"
+                    value={calculs.tvaPourcentage}
+                    onChange={(e) => handleCalculChange('tvaPourcentage', e.target.value)}
+                    className="input-tva-percent"
+                  />
+                </div>
+                <div className="tva-separator">ou</div>
+                <div className="tva-amount">
+                  <span>Montant</span>
+                  <input
+                    type="number"
+                    value={calculs.tvaMontant}
+                    onChange={(e) => handleCalculChange('tvaMontant', e.target.value)}
+                    className="input-tva-amount"
+                  />
+                </div>
+              </div>
+            ) : (
+              <span className="recap-value">{formatNumber(calculs.tvaMontant)}</span>
+            )}
+          </div>
+          
+          <div className="recap-row total-row">
+            <span>TOTAL GLOBAL TTC</span>
+            <span className="recap-value">{formatNumber(calculs.totalGlobalTTC)}</span>
+          </div>
+        </div>
+
+        {/* Section signatures - STRUCTURE MODIFIÉE */}
+        <div className="signatures-section">
+          <div className="signatures-grid">
+            <div className="signature-block">
+              <div className="signature-line">Le Chargé de suivi</div>
+              {!isPrintMode ? (
+                <input
+                  type="text"
+                  value={signatures.chargeSuivi}
+                  onChange={(e) => handleSignatureChange('chargeSuivi', e.target.value)}
+                  className="signature-input"
+                  placeholder="Nom et signature"
+                />
+              ) : (
+                <div className="signature-space"></div>
+              )}
+            </div>
+            
+            <div className="signature-block">
+              <div className="signature-line">Le Chef de département</div>
+              {!isPrintMode ? (
+                <input
+                  type="text"
+                  value={signatures.chefDepartement}
+                  onChange={(e) => handleSignatureChange('chefDepartement', e.target.value)}
+                  className="signature-input"
+                  placeholder="Nom et signature"
+                />
+              ) : (
+                <div className="signature-space"></div>
+              )}
+            </div>
+            
+            <div className="signature-block service-block">
+              <div className="signature-line">Le Chef de service</div>
+              {!isPrintMode ? (
+                <div className="service-selection">
+                  <select
+                    value={signatures.serviceType}
+                    onChange={(e) => handleSignatureChange('serviceType', e.target.value)}
+                    className="service-select"
+                  >
+                    {serviceOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {signatures.serviceType && (
+                    <div className="selected-service">{signatures.serviceType}</div>
+                  )}
+                </div>
+              ) : (
+                <div className="signature-space service-space"></div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bouton ajouter ligne (uniquement en mode édition) */}
+        {!isPrintMode && (
+          <div className="add-line-section">
+            <button onClick={addNewLine} className="btn-add-line">
+              + Ajouter une ligne
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Boutons d'action */}
-      <div className="action-buttons print-hide">
-        <button className="btn-save" onClick={saveDecompte}>
-          💾 Sauvegarder Décompte
-        </button>
-        <button className="btn-excel" onClick={downloadExcel}>
-          📊 Télécharger Excel
-        </button>
-        <button className="btn-pdf" onClick={downloadPDF}>
-          📄 Télécharger PDF
-        </button>
-        <button className="btn-print" onClick={handlePrint}>
-          🖨️ Imprimer
-        </button>
-        <button className="btn-back" onClick={goBack}>
-          ⬅️ Retour à l'Attachement
-        </button>
-      </div>
-    </div>
+      {/* Boutons d'action (uniquement en mode édition) */}
+      {!isPrintMode && (
+        <div className="action-buttons-bottom">
+          <button onClick={() => alert("Décompte enregistré !")} className="btn-save">
+            💾 Enregistrer le décompte
+          </button>
+          <button onClick={downloadExcel} className="btn-excel">
+            📊 Télécharger Excel
+          </button>
+          <button onClick={downloadPDF} className="btn-pdf">
+            📄 Télécharger PDF
+          </button>
+          <button onClick={printDocument} className="btn-print">
+            🖨️ Imprimer
+          </button>
+          <button onClick={() => navigate(`/marches/${id}/attachements`)} className="btn-back">
+            ↩️ Retour à l'attachement
+          </button>
+        </div>
+      )}
+    </section>
   );
-};
+}
 
-export default DecomptePage;
+export default DecomptesPage;

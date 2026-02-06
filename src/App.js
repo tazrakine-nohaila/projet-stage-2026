@@ -8,7 +8,7 @@ import MarcheDetail from "./pages/MarcheDetail";
 import Connexion from "./pages/Connexion"; 
 import Attachement from "./pages/Attachement";
 import BordereauPrix from "./pages/BordereauPrix ";
-import DecomptesPage from "./pages/DecomptesPage"; // Importez le nouveau composant
+import DecomptesPage from "./pages/DecomptesPage"; 
 
 function App() {
   return (
@@ -20,10 +20,10 @@ function App() {
           <Route path="/ajouter-marche" element={<AjouterMarche />} />
           <Route path="/marche/:id" element={<MarcheDetail />} />
           <Route path="/marches/:id/bordereau-prix" element={<BordereauPrix />} />
-          <Route path="/marches/:id/attachements" element={<Attachement />} /> 
+          <Route path="/marches/:id/attachements" element={<Attachement />} />
           
-          {/* Nouvelle route pour les décomptes */}
-          <Route path="/decompte/" element={<DecomptesPage />} />
+          {/* CORRIGER CETTE ROUTE : */}
+          <Route path="/marche/:id/decomptes" element={<DecomptesPage />} />
           
           <Route path="/connexion" element={<Connexion />} />
         </Routes>
