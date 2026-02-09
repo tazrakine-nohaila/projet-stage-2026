@@ -6,7 +6,6 @@ function MarcheDetail() {
   const navigate = useNavigate();
   const { state: marche } = useLocation();
 
- للوثائق
   const [documents, setDocuments] = useState([]);
   const [docType, setDocType] = useState("");
   const [inputMode, setInputMode] = useState("select"); 
