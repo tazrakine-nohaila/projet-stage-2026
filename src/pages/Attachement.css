@@ -441,6 +441,16 @@
   margin-top: 40px;
   padding-top: 30px;
   border-top: 2px solid #ddd;
+  
+  
+}
+.btn-decompte {
+  background: #1976d2;
+}
+.btn-decompte:hover {
+  background: #529fec;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
 .action-buttons button {
@@ -455,6 +465,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  
 }
 
 .btn-excel {
