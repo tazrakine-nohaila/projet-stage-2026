@@ -190,10 +190,10 @@ const sectionStyle = {
 const bgStyle = {
   position: "absolute",
   inset: 0,
-  backgroundImage: "url('/img/img3.jpeg')",
+  backgroundImage: "url('/img/img1.jpeg')",
   backgroundSize: "cover",
   backgroundPosition: "center",
-  filter: "blur(3px) brightness(0.6)",
+
   zIndex: 0,
 };
 
