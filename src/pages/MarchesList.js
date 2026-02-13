@@ -57,20 +57,26 @@ function MarchesList() {
   const statusColor = (statut) => {
     switch (statut) {
       case "En cours":
-        return "#e08ae0ff";
+        return "#2e7d32";
       case "En attente":
-        return "#ebcda4ff";
+        return "#ffc107";
       case "Terminé":
-        return "#60bddaff";
+        return "#007bff";
       default:
-        return "#ac79ceff";
+        return "#6c757d";
     }
   };
 
   return (
-    <section style={{ position: "relative", minHeight: "100vh", padding: "50px 20px", overflow: "hidden" }}>
-      
-      {/* Fond flou */}
+    <section style={{
+      position: "relative",
+      minHeight: "100vh",
+      padding: "50px 20px",
+      overflow: "hidden",
+      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    }}>
+
+      {/* Fond flou avec overlay moderne */}
       <div
         style={{
           position: "absolute",
@@ -78,20 +84,39 @@ function MarchesList() {
           left: 0,
           width: "100%",
           height: "100%",
-          backgroundImage: "url('/img/img3.jpeg')",
+          backgroundImage: "url('/img/img1.jpeg')",
           backgroundSize: "cover",
           backgroundPosition: "center",
-          filter: "blur(2px)",
+         
           zIndex: 0,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+         
         }}
       />
 
       {/* Contenu */}
       <div style={{ position: "relative", zIndex: 1, maxWidth: "1200px", margin: "0 auto" }}>
 
-        {/* Titre + bouton Ajouter */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", marginBottom: "35px" }}>
-          <h2 style={{ textAlign: "center", color: "#fff", display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", flexGrow: 1 }}>
+        {/* Titre dans une carte */}
+        <div style={{
+          background: "#fff",
+          border: "1px solid #2e7d32",
+          padding: "20px",
+          borderRadius: "16px",
+          textAlign: "center",
+          marginBottom: "35px",
+          boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
+          position: "relative",
+        }}>
+          <h2 style={{ color: "#2e7d32", display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", margin: 0 }}>
             <i className="bi bi-folder-fill"></i>
             Consultation des marchés
           </h2>
@@ -99,13 +124,27 @@ function MarchesList() {
           <Link
             to="/ajouter-marche"
             style={{
-              padding: "10px 20px",
-              backgroundColor: "#FFFFFF",
-              color: "#000",
-              borderRadius: "6px",
+              position: "absolute",
+              top: "20px",
+              right: "20px",
+              padding: "8px 16px",
+              backgroundColor: "#0a722b",
+              color: "#fff",
+              borderRadius: "8px",
               textDecoration: "none",
               fontWeight: "bold",
-              marginTop: "10px",
+              fontSize: "14px",
+              boxShadow: "0 4px 15px rgba(10, 114, 43, 0.3)",
+              transition: "all 0.3s ease",
+              border: "1px solid #096520",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = "translateY(-2px)";
+              e.target.style.boxShadow = "0 6px 20px rgba(10, 114, 43, 0.4)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = "translateY(0)";
+              e.target.style.boxShadow = "0 4px 15px rgba(10, 114, 43, 0.3)";
             }}
           >
             Ajouter un marché
@@ -138,14 +177,16 @@ function MarchesList() {
               onMouseLeave={() => setHovered(null)}
               style={{
                 position: "relative",
-                background: hovered === m.id ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.16)",
-                padding: "14px 14px 14px 20px",
-                borderRadius: "10px",
-                color: "#fff",
+                background: "#fff",
+                border: "1px solid #2e7d32",
+                padding: "20px 20px 20px 26px",
+                borderRadius: "16px",
+                color: "#000",
                 maxWidth: "360px",
-                transform: hovered === m.id ? "translateY(-6px)" : "translateY(0)",
-                boxShadow: hovered === m.id ? "0 12px 25px rgba(0,0,0,0.35)" : "0 6px 14px rgba(0,0,0,0.25)",
-                transition: "all 0.25s ease",
+                transform: hovered === m.id ? "translateY(-8px) scale(1.02)" : "translateY(0) scale(1)",
+                boxShadow: hovered === m.id ? "0 20px 40px rgba(46, 125, 50, 0.3)" : "0 8px 20px rgba(0,0,0,0.1)",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                cursor: "pointer",
               }}
             >
               <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "6px", backgroundColor: statusColor(m.statut) }} />
@@ -171,12 +212,15 @@ function MarchesList() {
                   display: "inline-block",
                   marginTop: "8px",
                   padding: "6px 12px",
-                  backgroundColor: "#FFFFFF",
-                  color: "#000",
+                  backgroundColor: "#28a745",
+                  color: "#fff",
                   borderRadius: "6px",
                   textDecoration: "none",
                   fontSize: "13px",
+                  transition: "all 0.3s ease",
                 }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = "#218838"}
+                onMouseLeave={(e) => e.target.style.backgroundColor = "#28a745"}
               >
                 Ouvrir
               </Link>
@@ -198,7 +242,8 @@ const inputStyle = {
 
 const textStyle = {
   fontSize: "14px",
-  margin: "2px 0",
+  margin: "4px 0",
+  lineHeight: "1.4",
 };
 
 export default MarchesList;
